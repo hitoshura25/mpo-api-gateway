@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mpo-api-search-fastapi
+  labels:
+    app: mpo-api-search-fastapi
+    service: mpo-api-search-fastapi
+spec:
+  ports:
+  - port: 8000
+    name: http
+  selector:
+    app: mpo-api-search-fastapi
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mpo-api-gateway-search-fastapi
+  labels:
+    account: mpo-api-search-fastapi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mpo-api-search-fastapi-v1
+  labels:
+    app: mpo-api-search-fastapi
+    version: v1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mpo-api-search-fastapi
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: mpo-api-search-fastapi
+        version: v1
+    spec:
+      serviceAccountName: mpo-api-gateway-search-fastapi
+      containers:
+      - name: mpo-api-search-fastapi
+        image: hitoshura25/mpo-api-search-fastapi:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
