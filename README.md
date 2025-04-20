@@ -8,11 +8,11 @@ Currently working on a MacBook Pro (16in, M4 Pro, 48gb RAM, OS 15.3.2). Your res
 
 ***Note on LoadBalancer service type***
 
-Kind documents some possible solutions to allow LoadBalancer types of services (which is what the Istio gateway uses by default) to work on the cluster: https://kind.sigs.k8s.io/docs/user/loadbalancer/
+KinD documents some possible solutions to allow LoadBalancer types of services (which is what the Istio gateway uses by default) to work on the cluster: https://kind.sigs.k8s.io/docs/user/loadbalancer/
 
-However nothing seemed to work for me, perhaps because I'm on a Mac and using Docker Desktop (there may be some additional ports that need to be forwarded). Using help from this article, https://medium.com/groupon-eng/loadbalancer-services-using-kubernetes-in-docker-kind-694b4207575d, I found a workaround was to setup an additional Ingress controller to forward traffice from port 80 on the local host to the Istio gateway service (of type LoadBalancer). The key parts of this in the instructions below:
-- The cluster.yaml config file used below contains settings to expose 80 and 443 ports to the control plan
-- The **Setup Ingress to forward host traffic to the kind cluster** section details the setup for Ingress controller to forward to the Istio gateway service
+However nothing seemed to work for me, perhaps because I'm on a Mac and using Docker Desktop (there may be some additional ports that need to be forwarded). Using help from this article, https://medium.com/groupon-eng/loadbalancer-services-using-kubernetes-in-docker-kind-694b4207575d, I found a workaround was to setup an additional Ingress controller to forward traffic from port 80 on the local host to the Istio gateway service (of type LoadBalancer). The key parts of this in the instructions below:
+- The cluster.yaml config file used below contains settings to expose 80 and 443 ports to the control plane
+- The **Setup Ingress to forward host traffic to the kind cluster** section details the setup for the Ingress controller to forward to the Istio gateway service
 
 ### Install Necessary Tools
 #### Docker
