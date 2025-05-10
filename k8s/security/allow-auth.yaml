@@ -1,0 +1,14 @@
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: keycloak
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: keycloak
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        methods: ["GET"]
