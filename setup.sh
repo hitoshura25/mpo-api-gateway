@@ -16,12 +16,19 @@ kubectl label node my-cluster-control-plane node.kubernetes.io/exclude-from-exte
 
 # Deploy apps
 kubectl apply -f k8s/apps
+kubectl apply -f k8s/idp/keycloak.yaml
 
 # Setup gateway
 kubectl apply -f k8s/gateway
 
 # Wait for the deployment to be ready
 kubectl rollout status deployment mpo-api-gateway-istio -n default --timeout=90s
+
+# Wait for the keycloak to be ready
+kubectl rollout status deployment keycloak -n default --timeout=120s
+
+# Apply authorization policies
+kubectl apply -f k8s/security
 
 # Forward traffic from localhost to the gateway
 kubectl port-forward service/mpo-api-gateway-istio 8080:80 > /dev/null 2>&1 &

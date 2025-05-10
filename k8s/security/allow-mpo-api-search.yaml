@@ -1,0 +1,14 @@
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: "mpo-api-search-fastapi-viewer"
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: mpo-api-search-fastapi
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        methods: ["GET"]
