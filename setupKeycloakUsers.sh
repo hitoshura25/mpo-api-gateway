@@ -1,126 +1,197 @@
 #!/bin/bash
-export KEYCLOAK_URL=http://localhost:8080/auth
-export KEYCLOAK_TOKEN=$(curl -d "client_id=admin-cli" -d "username=admin" -d "password=admin" -d "grant_type=password" "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" | jq -r .access_token)
-echo $KEYCLOAK_TOKEN
+set -e  # Exit on error
+KEYCLOAK_URL=http://localhost:8080/auth
+ADMIN_USER="admin"
+ADMIN_PASSWORD="admin"
+CLIENT_NAME="Media-Player-Omega"
 
-export CLIENT="Media-Player-Omega"
-# Create initial token to register the client
-read -r client token <<<$(curl -H "Authorization: Bearer ${KEYCLOAK_TOKEN}" -X POST -H "Content-Type: application/json" -d '{"expiration": 0, "count": 1}' $KEYCLOAK_URL/admin/realms/master/clients-initial-access | jq -r '[.id, .token] | @tsv')
+log() {
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
+}
 
-# Register the client
-read -r id secret <<<$(curl -X POST -d "{ \"clientId\": \"${CLIENT}\", \"implicitFlowEnabled\": true }" -H "Content-Type:application/json" -H "Authorization: bearer ${token}" ${KEYCLOAK_URL}/realms/master/clients-registrations/default| jq -r '[.id, .secret] | @tsv')
+urlencode() {
+    local string="$1"
+    local strlen=${#string}
+    local encoded=""
+    local pos c o
+    
+    for (( pos=0 ; pos<strlen ; pos++ )); do
+        c=${string:$pos:1}
+        case "$c" in
+            [-_.~a-zA-Z0-9] ) o="${c}" ;;
+            * )               printf -v o '%%%02x' "'$c"
+        esac
+        encoded+="${o}"
+    done
+    echo "${encoded}"
+}
 
-# Add allowed redirect URIs
-curl -H "Authorization: Bearer ${KEYCLOAK_TOKEN}" -X PUT \
-  -H "Content-Type: application/json" -d "{\"serviceAccountsEnabled\": true, \"directAccessGrantsEnabled\": true, \"authorizationServicesEnabled\": true, \"redirectUris\": [\"http://localhost:8080/\"]}" $KEYCLOAK_URL/admin/realms/master/clients/${id}
+get_admin_token() {
+    curl -s -d "client_id=admin-cli" \
+         -d "username=$ADMIN_USER" \
+         -d "password=$ADMIN_PASSWORD" \
+         -d "grant_type=password" \
+         "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" | jq -r .access_token
+}
 
-ROLE_NAME="mpo-user"
+create_client() {
+    local token=$1
+    # Create initial access token
+    read -r client init_token <<<$(curl -s -H "Authorization: Bearer ${token}" \
+        -X POST -H "Content-Type: application/json" \
+        -d '{"expiration": 0, "count": 1}' \
+        "$KEYCLOAK_URL/admin/realms/master/clients-initial-access" | jq -r '[.id, .token] | @tsv')
 
-echo "Creating role read:search-results"
-curl -H "Authorization: Bearer ${KEYCLOAK_TOKEN}" -X POST -H "Content-Type: application/json" \
- -d "{
-    \"name\": \"read:search-results\",
-    \"description\": \"View Search Results\"
-  }" \
-$KEYCLOAK_URL/admin/realms/master/clients/${id}/roles
+    # Register client
+    read -r client_id client_secret <<<$(curl -s -X POST \
+        -d "{ \"clientId\": \"${CLIENT_NAME}\", \"implicitFlowEnabled\": true }" \
+        -H "Content-Type:application/json" \
+        -H "Authorization: bearer ${init_token}" \
+        "${KEYCLOAK_URL}/realms/master/clients-registrations/default" | jq -r '[.id, .secret] | @tsv')
 
-echo "Creating role read:subscriptions"
-curl -H "Authorization: Bearer ${KEYCLOAK_TOKEN}" -X POST -H "Content-Type: application/json" \
- -d "{
-    \"name\": \"read:subscriptions\",
-    \"description\": \"View Subscriptions\"
-  }" \
-$KEYCLOAK_URL/admin/realms/master/clients/${id}/roles
+    echo "$client_id"
+}
 
-echo "Creating composites for ${ROLE_NAME}"
-curl -H "Authorization: Bearer ${KEYCLOAK_TOKEN}" -X POST -H "Content-Type: application/json" \
- -d "{
-    \"name\": \"${ROLE_NAME}\",
-    \"description\": \"Media Player Omega User\",
-    \"composite\": true,
-    \"composites\": {
-      \"client\": {
-        \"${CLIENT}\": [
-            \"read:search-results\",
-            \"read:subscriptions\"
+create_permission() {
+    local token=$1
+    local client_id=$2
+    local permission=$3
+    local description=$4
+
+    log "Creating permission ${permission}..."
+    curl -s -H "Authorization: Bearer ${token}" \
+      -X POST -H "Content-Type: application/json" \
+      -d "{\"name\": \"${permission}\", \"description\": \"${description}\"}" \
+      "$KEYCLOAK_URL/admin/realms/master/clients/${client_id}/roles"
+}
+
+create_role_with_permissions() {
+    local token=$1
+    local client_id=$2
+    local role_name=$3
+    local -a permissions=("${!4}")
+    local permissions_string=$(printf "\"%s\"," "${permissions[@]}" | sed 's/,$//')
+
+    log "Creating role ${role_name} with permissions: ${permissions_string}"
+    curl -H "Authorization: Bearer ${token}" -X POST -H "Content-Type: application/json" \
+    -d "{
+        \"name\": \"${role_name}\",
+        \"description\": \"Media Player Omega User\",
+        \"composite\": true,
+        \"composites\": {
+          \"client\": {
+            \"${CLIENT_NAME}\": [${permissions_string}]
+          }
+        }
+    }" $KEYCLOAK_URL/admin/realms/master/clients/${client_id}/roles
+}
+
+create_user() {
+    local token=$1
+    local email=$2
+    local password=$3
+    log "Creating user ${email}..."
+    curl -H "Authorization: Bearer ${token}" -X POST -H "Content-Type: application/json" \
+    -d "{
+          \"username\": \"${email}\", 
+          \"email\": \"${email}\", 
+          \"enabled\": true, 
+          \"credentials\": [
+            {
+              \"type\": \"password\", 
+              \"value\": \"${password}\", 
+              \"temporary\": false
+            }
           ]
-        }
-    }
-}" \
-$KEYCLOAK_URL/admin/realms/master/clients/${id}/roles
+        }" $KEYCLOAK_URL/admin/realms/master/users
+}
 
-echo "Creating role-mapper"
-curl -H "Authorization: Bearer ${KEYCLOAK_TOKEN}" \
-     -X POST \
-     -H "Content-Type: application/json" \
-     -d '{
-       "name": "role-mapper",
-       "protocol": "openid-connect",
-       "protocolMapper": "oidc-usermodel-realm-role-mapper",
-       "config": {
-         "claim.name": "roles",
-         "jsonType.label": "String",
-         "multivalued": "true",
-         "id.token.claim": "true",
-         "access.token.claim": "true",
-         "userinfo.token.claim": "true"
-       }
-     }' \
-     "$KEYCLOAK_URL/admin/realms/master/clients/${id}/protocol-mappers/models"
+assign_user_role() {
+    local token=$1
+    local client_id=$2
+    local email=$3
+    local role_name=$4
 
-echo "Creating permissions mapper"
-curl -H "Authorization: Bearer ${KEYCLOAK_TOKEN}" \
-     -X POST \
-     -H "Content-Type: application/json" \
-     -d '{
-       "name": "permissions-mapper",
-       "protocol": "openid-connect",
-       "protocolMapper": "oidc-usermodel-attribute-mapper",
-       "config": {
-         "claim.name": "permissions",
-         "jsonType.label": "String",
-         "user.attribute": "permissions",
-         "id.token.claim": "true",
-         "access.token.claim": "true",
-         "userinfo.token.claim": "true",
-         "multivalued": "true"
-       }
-     }' \
-     "$KEYCLOAK_URL/admin/realms/master/clients/${id}/protocol-mappers/models"
+    log "Getting user id for user ${email}..."
+    local user_id=$(curl -H "Authorization: Bearer ${token}" \
+        -X GET "$KEYCLOAK_URL/admin/realms/master/users?email=$(urlencode "$email")" | jq -r '.[0].id')
 
-echo 'Add the group attribute in the JWT returned by Keycloak'
-curl -H "Authorization: Bearer ${KEYCLOAK_TOKEN}" -X POST -H "Content-Type: application/json" -d '{"name": "group", "protocol": "openid-connect", "protocolMapper": "oidc-usermodel-attribute-mapper", "config": {"claim.name": "group", "jsonType.label": "String", "user.attribute": "group", "id.token.claim": "true", "access.token.claim": "true"}}' $KEYCLOAK_URL/admin/realms/master/clients/${id}/protocol-mappers/models
+    # Get role ID
+    log "Getting role id for role ${role_name}..."
+    local role_id=$(curl -s -H "Authorization: Bearer ${token}" \
+        -X GET "$KEYCLOAK_URL/admin/realms/master/clients/${client_id}/roles/${role_name}" | jq -r '.id')
 
-echo 'Add the user type attribute in the JWT returned by Keycloak'
-curl -H "Authorization: Bearer ${KEYCLOAK_TOKEN}" -X POST -H "Content-Type: application/json" -d '{"name": "usertype", "protocol": "openid-connect", "protocolMapper": "oidc-usermodel-attribute-mapper", "config": {"claim.name": "usertype", "jsonType.label": "String", "user.attribute": "usertype", "id.token.claim": "true", "access.token.claim": "true"}}' $KEYCLOAK_URL/admin/realms/master/clients/${id}/protocol-mappers/models
+    # Assign role
+    log "Assigning role ${role_name} to user ${email}..."
+    curl -s -H "Authorization: Bearer ${token}" \
+         -X POST -H "Content-Type: application/json" \
+         -d "[{\"id\": \"${role_id}\", \"name\": \"${role_name}\"}]" \
+         "$KEYCLOAK_URL/admin/realms/master/users/${user_id}/role-mappings/clients/${client_id}"
+}
 
-echo 'Create regular user'
-curl -H "Authorization: Bearer ${KEYCLOAK_TOKEN}" -X POST -H "Content-Type: application/json" \
- -d "{
-      \"username\": \"user\", 
-      \"email\": \"user@acme.com\", 
-      \"enabled\": true, 
-      \"credentials\": [
-        {
-          \"type\": \"password\", 
-          \"value\": \"password\", 
-          \"temporary\": false
-        }
-      ]
-    }" $KEYCLOAK_URL/admin/realms/master/users
+setup_token_claims() {
+    local token=$1
+    local client_id=$2
+    log "Creating role-mapper"
+    curl -H "Authorization: Bearer ${token}" \
+        -X POST \
+        -H "Content-Type: application/json" \
+        -d '{
+          "name": "role-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }' \
+        "$KEYCLOAK_URL/admin/realms/master/clients/${client_id}/protocol-mappers/models"
 
-echo 'Get created user ID'
-USER_ID=$(curl -H "Authorization: Bearer ${KEYCLOAK_TOKEN}" \
-  -X GET "$KEYCLOAK_URL/admin/realms/master/users?email=user%40acme.com" | jq -r '.[0].id')
+    log "Creating permissions mapper"
+    curl -H "Authorization: Bearer ${token}" \
+        -X POST \
+        -H "Content-Type: application/json" \
+        -d '{
+          "name": "permissions-mapper",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "claim.name": "permissions",
+            "jsonType.label": "String",
+            "user.attribute": "permissions",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "multivalued": "true"
+          }
+        }' \
+        "$KEYCLOAK_URL/admin/realms/master/clients/${client_id}/protocol-mappers/models"
+}
 
-echo 'Get client role ID'
-CLIENT_ROLE_ID=$(curl -H "Authorization: Bearer ${KEYCLOAK_TOKEN}" \
-  -X GET "$KEYCLOAK_URL/admin/realms/master/clients/${id}/roles/${ROLE_NAME}" | jq -r '.id')
+# Main execution
+main() {
+    log "Starting Keycloak setup..."
+    
+    log "Getting token..."
+    KEYCLOAK_TOKEN=$(get_admin_token)
+    
+    log "Creating client ${CLIENT_NAME}..."
+    CLIENT_ID=$(create_client "$KEYCLOAK_TOKEN")
 
-echo 'Assign client role to user'
-curl -H "Authorization: Bearer ${KEYCLOAK_TOKEN}" \
-  -X POST -H "Content-Type: application/json" \
-  -d "[{
-    \"id\": \"${CLIENT_ROLE_ID}\",
-    \"name\": \"${ROLE_NAME}\"
-  }]" "$KEYCLOAK_URL/admin/realms/master/users/${USER_ID}/role-mappings/clients/${id}" 
+    create_permission "$KEYCLOAK_TOKEN" "$CLIENT_ID" "read:search-results" "View Search Results"
+    create_permission "$KEYCLOAK_TOKEN" "$CLIENT_ID" "read:subscriptions" "View Subscriptions"
+        
+    local permissions=("read:search-results" "read:subscriptions")
+    create_role_with_permissions "$KEYCLOAK_TOKEN" "$CLIENT_ID" "mpo-user" permissions[@]
+    
+    create_user "$KEYCLOAK_TOKEN" "user@acme.com" "password"
+    assign_user_role "$KEYCLOAK_TOKEN" "$CLIENT_ID" "user@acme.com" "mpo-user"
+    setup_token_claims "$KEYCLOAK_TOKEN" "$CLIENT_ID"
+    log "Setup completed successfully"
+}
+
+main "$@"
