@@ -25,7 +25,7 @@ kubectl apply -f k8s/gateway
 kubectl rollout status deployment mpo-api-gateway-istio -n default --timeout=90s
 
 # Wait for the keycloak to be ready
-kubectl rollout status deployment keycloak -n default --timeout=120s
+kubectl rollout status statefulset keycloak -n default --timeout=120s
 
 # Apply authorization policies
 kubectl apply -f k8s/security
