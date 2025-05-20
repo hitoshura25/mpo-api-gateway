@@ -6,7 +6,7 @@ ADMIN_PASSWORD="admin"
 CLIENT_NAME="Media-Player-Omega"
 
 log() {
-    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1" >&2
 }
 
 urlencode() {
@@ -27,22 +27,24 @@ urlencode() {
 }
 
 get_admin_token() {
-    curl -s -d "client_id=admin-cli" \
+    log "Getting admin token..."
+    local token=$(curl -s -d "client_id=admin-cli" \
          -d "username=$ADMIN_USER" \
          -d "password=$ADMIN_PASSWORD" \
          -d "grant_type=password" \
-         "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" | jq -r .access_token
+         "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" | jq -r .access_token)
+    echo "$token"
 }
 
 create_client() {
     local token=$1
-    # Create initial access token
+    log "Creating initial access token..."
     read -r client init_token <<<$(curl -s -H "Authorization: Bearer ${token}" \
         -X POST -H "Content-Type: application/json" \
         -d '{"expiration": 0, "count": 1}' \
         "$KEYCLOAK_URL/admin/realms/master/clients-initial-access" | jq -r '[.id, .token] | @tsv')
 
-    # Register client
+    log "Registering client ${CLIENT_NAME}..."
     read -r client_id client_secret <<<$(curl -s -X POST \
         -d "{ \"clientId\": \"${CLIENT_NAME}\", \"implicitFlowEnabled\": true }" \
         -H "Content-Type:application/json" \
@@ -116,12 +118,10 @@ assign_user_role() {
     local user_id=$(curl -H "Authorization: Bearer ${token}" \
         -X GET "$KEYCLOAK_URL/admin/realms/master/users?email=$(urlencode "$email")" | jq -r '.[0].id')
 
-    # Get role ID
     log "Getting role id for role ${role_name}..."
     local role_id=$(curl -s -H "Authorization: Bearer ${token}" \
         -X GET "$KEYCLOAK_URL/admin/realms/master/clients/${client_id}/roles/${role_name}" | jq -r '.id')
 
-    # Assign role
     log "Assigning role ${role_name} to user ${email}..."
     curl -s -H "Authorization: Bearer ${token}" \
          -X POST -H "Content-Type: application/json" \
@@ -176,10 +176,7 @@ setup_token_claims() {
 main() {
     log "Starting Keycloak setup..."
     
-    log "Getting token..."
     KEYCLOAK_TOKEN=$(get_admin_token)
-    
-    log "Creating client ${CLIENT_NAME}..."
     CLIENT_ID=$(create_client "$KEYCLOAK_TOKEN")
 
     create_permission "$KEYCLOAK_TOKEN" "$CLIENT_ID" "read:search-results" "View Search Results"
