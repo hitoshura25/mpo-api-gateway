@@ -1,4 +1,16 @@
 apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: mpo-api-search-fastapi-jwt
+spec:
+  selector:
+    matchLabels:
+      app: mpo-api-search-fastapi
+  jwtRules:
+  - issuer: "http://localhost:8080/auth/realms/master"
+    jwksUri: "http://keycloak.default:8080/auth/realms/master/protocol/openid-connect/certs"
+---
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: "mpo-api-search-fastapi-viewer"
@@ -12,3 +24,9 @@ spec:
   - to:
     - operation:
         methods: ["GET"]
+    from:
+    - source:
+        requestPrincipals: ["*"]
+    when:
+    - key: request.auth.claims[permissions]
+      values: ["read:search-results"]
