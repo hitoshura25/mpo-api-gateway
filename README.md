@@ -30,6 +30,9 @@ https://istio.io/latest/docs/setup/getting-started/#install
 ### Setup the cluster, Istio, Kubernetes Gateway CRDs, and deploy the apps and gateway
 `./scripts/setup.sh`
 
+### Setup authorization and a test user (RBAC via Keycloak, JWT claim enforcement with Istio)
+`./scripts/keycloak/setupKeycloakUsers.sh`
+
 ### Access the application
 `curl "http://localhost:8080/search/?term=games"`
 
