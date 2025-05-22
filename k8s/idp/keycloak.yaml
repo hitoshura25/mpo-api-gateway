@@ -12,13 +12,30 @@ spec:
   selector:
     app: keycloak
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: keycloak
+  # Used to
+  name: keycloak-discovery
+spec:
+  selector:
+    app: keycloak
+  # Allow not-yet-ready Pods to be visible to ensure the forming of a cluster if Pods come up concurrently
+  publishNotReadyAddresses: true
+  clusterIP: None
+  type: ClusterIP
+---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: keycloak
   labels:
     app: keycloak
 spec:
+  serviceName: keycloak-discovery
+  # Run with one replica to save resources, or with two replicas to allow for rolling updates for configuration changes
   replicas: 1
   selector:
     matchLabels:
@@ -30,23 +47,60 @@ spec:
     spec:
       containers:
       - name: keycloak
-        image: quay.io/keycloak/keycloak:15.0.0
+        image: quay.io/keycloak/keycloak:26.2.4
+        args: ["start"]
         env:
-        - name: KEYCLOAK_USER
+        - name: KC_BOOTSTRAP_ADMIN_USERNAME
           value: "admin"
-        - name: KEYCLOAK_PASSWORD
+        - name: KC_BOOTSTRAP_ADMIN_PASSWORD
           value: "admin"
-        - name: PROXY_ADDRESS_FORWARDING
+        - name: KC_PROXY_HEADERS
+          value: "forwarded"
+        - name: KC_HTTP_ENABLED
           value: "true"
+        - name: KC_HOSTNAME_STRICT
+          value: "false"
+        - name: KC_HTTP_RELATIVE_PATH
+          value: "/auth/"
+        - name: KC_HEALTH_ENABLED
+          value: "true"
+        - name: KC_METRICS_ENABLED
+          value: "true"
+        - name: KC_METRICS_PATH
+          value: "/auth/metrics"
+        - name: KC_CACHE_CONFIG_FILE
+          value: 'cache-ispn.xml'
+        - name: 'KC_CACHE'
+          value: 'ispn'
+        # Use the Kubernetes configuration for distributed caches which is based on DNS
+        - name: 'KC_CACHE_STACK'
+          value: 'kubernetes'
+        # Passing the Pod's IP primary address to the JGroups clustering as this is required in IPv6 only setups
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        # Instruct JGroups which DNS hostname to use to discover other Keycloak nodes
+        # Needs to be unique for each Keycloak cluster
+        - name: JAVA_OPTS_APPEND
+          value: '-Djgroups.dns.query="keycloak-discovery" -Djgroups.bind.address=$(POD_IP)'
         ports:
         - name: http
           containerPort: 8080
         - name: https
           containerPort: 8443
+        startupProbe:
+          httpGet:
+            path: /auth/health/started
+            port: 9000
         readinessProbe:
           httpGet:
-            path: /auth/realms/master
-            port: 8080
+            path: /auth/health/ready
+            port: 9000
+        livenessProbe:
+          httpGet:
+            path: /auth/health/live
+            port: 9000
         resources:
           requests:
             cpu: 500m

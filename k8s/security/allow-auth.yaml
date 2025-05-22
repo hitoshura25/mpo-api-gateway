@@ -11,4 +11,4 @@ spec:
   rules:
   - to:
     - operation:
-        methods: ["GET"]
+        methods: ["GET", "POST", "PUT"]
