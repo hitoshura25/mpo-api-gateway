@@ -28,10 +28,10 @@ https://www.docker.com/get-started/
 https://istio.io/latest/docs/setup/getting-started/#install
 
 ### Setup the cluster, Istio, Kubernetes Gateway CRDs, and deploy the apps and gateway
-`setup.sh`
+`./scripts/setup.sh`
 
 ### Access the application
 `curl "http://localhost:8080/search/?term=games"`
 
 ### To cleanup when done
-`cleanup.sh`
+`./scripts/cleanup.sh`

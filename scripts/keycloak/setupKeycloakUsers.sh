@@ -1,30 +1,7 @@
 #!/bin/bash
 set -e  # Exit on error
-KEYCLOAK_URL=http://localhost:8080/auth
-ADMIN_USER="admin"
-ADMIN_PASSWORD="admin"
-CLIENT_NAME="Media-Player-Omega"
-
-log() {
-    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1" >&2
-}
-
-urlencode() {
-    local string="$1"
-    local strlen=${#string}
-    local encoded=""
-    local pos c o
-    
-    for (( pos=0 ; pos<strlen ; pos++ )); do
-        c=${string:$pos:1}
-        case "$c" in
-            [-_.~a-zA-Z0-9] ) o="${c}" ;;
-            * )               printf -v o '%%%02x' "'$c"
-        esac
-        encoded+="${o}"
-    done
-    echo "${encoded}"
-}
+SCRIPT_DIR=$(dirname "$0")
+source "$SCRIPT_DIR/env.sh"
 
 get_admin_token() {
     log "Getting admin token..."
@@ -51,7 +28,18 @@ create_client() {
         -H "Authorization: bearer ${init_token}" \
         "${KEYCLOAK_URL}/realms/master/clients-registrations/default" | jq -r '[.id, .secret] | @tsv')
 
-    echo "$client_id"
+    curl -H "Authorization: Bearer ${KEYCLOAK_TOKEN}" -X PUT \
+        -H "Content-Type: application/json" \
+        -d "{
+                \"serviceAccountsEnabled\": true, 
+                \"directAccessGrantsEnabled\": true, 
+                \"authorizationServicesEnabled\": true, 
+                \"fullScopeAllowed\": false,
+                \"redirectUris\": [\"${REDIRECT_URI}\"],
+                \"defaultRoles\": []
+            }" $KEYCLOAK_URL/admin/realms/master/clients/${client_id}
+
+    printf "%s\n" "${client_id}" "${client_secret}"
 }
 
 create_permission() {
@@ -132,52 +120,38 @@ assign_user_role() {
 setup_token_claims() {
     local token=$1
     local client_id=$2
-    log "Creating role-mapper"
+    
+    log "Creating client-role-mapper"
     curl -H "Authorization: Bearer ${token}" \
         -X POST \
         -H "Content-Type: application/json" \
-        -d '{
-          "name": "role-mapper",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-usermodel-realm-role-mapper",
-          "config": {
-            "claim.name": "roles",
-            "jsonType.label": "String",
-            "multivalued": "true",
-            "id.token.claim": "true",
-            "access.token.claim": "true",
-            "userinfo.token.claim": "true"
-          }
-        }' \
-        "$KEYCLOAK_URL/admin/realms/master/clients/${client_id}/protocol-mappers/models"
-
-    log "Creating permissions mapper"
-    curl -H "Authorization: Bearer ${token}" \
-        -X POST \
-        -H "Content-Type: application/json" \
-        -d '{
-          "name": "permissions-mapper",
-          "protocol": "openid-connect",
-          "protocolMapper": "oidc-usermodel-attribute-mapper",
-          "config": {
-            "claim.name": "permissions",
-            "jsonType.label": "String",
-            "user.attribute": "permissions",
-            "id.token.claim": "true",
-            "access.token.claim": "true",
-            "userinfo.token.claim": "true",
-            "multivalued": "true"
-          }
-        }' \
+        -d "{
+            \"name\": \"client-role-mapper\",
+            \"protocol\": \"openid-connect\",
+            \"protocolMapper\": \"oidc-usermodel-client-role-mapper\",
+            \"config\": {
+                \"claim.name\": \"permissions\",
+                \"jsonType.label\": \"String\",
+                \"client.id\": \"$CLIENT_NAME\",
+                \"usermodel.clientRoleMapping.clientId\": \"$CLIENT_NAME\",
+                \"multivalued\": \"true\",
+                \"id.token.claim\": \"true\",
+                \"access.token.claim\": \"true\",
+                \"userinfo.token.claim\": \"true\",
+                \"usermodel.realm.roles\": \"false\"
+            }
+        }" \
         "$KEYCLOAK_URL/admin/realms/master/clients/${client_id}/protocol-mappers/models"
 }
 
-# Main execution
 main() {
     log "Starting Keycloak setup..."
     
     KEYCLOAK_TOKEN=$(get_admin_token)
-    CLIENT_ID=$(create_client "$KEYCLOAK_TOKEN")
+    local client_info=$(create_client "$KEYCLOAK_TOKEN")
+    IFS='|' read -r -a client_info_array <<< "$client_info"
+    local CLIENT_ID="${client_info_array[0]}"
+    local CLIENT_SECRET="${client_info_array[1]}"
 
     create_permission "$KEYCLOAK_TOKEN" "$CLIENT_ID" "read:search-results" "View Search Results"
     create_permission "$KEYCLOAK_TOKEN" "$CLIENT_ID" "read:subscriptions" "View Subscriptions"
