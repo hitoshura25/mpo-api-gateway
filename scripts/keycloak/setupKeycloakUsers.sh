@@ -145,7 +145,7 @@ assign_user_role() {
 setup_token_claims() {
     local token=$1
     local client_id=$2
-    
+
     log "Creating client-role-mapper"
     curl -H "Authorization: Bearer ${token}" \
         -X POST \
