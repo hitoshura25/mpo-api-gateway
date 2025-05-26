@@ -6,8 +6,8 @@ source "$SCRIPT_DIR/env.sh"
 get_admin_token() {
     log "Getting admin token..."
     local token=$(curl -s -d "client_id=admin-cli" \
-         -d "username=$ADMIN_USER" \
-         -d "password=$ADMIN_PASSWORD" \
+         -d "username=$KEYCLOAK_ADMIN_USER" \
+         -d "password=$KEYCLOAK_ADMIN_PASSWORD" \
          -d "grant_type=password" \
          "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" | jq -r .access_token)
     echo "$token"
@@ -36,7 +36,8 @@ create_client() {
                 \"authorizationServicesEnabled\": true, 
                 \"fullScopeAllowed\": false,
                 \"redirectUris\": [\"${REDIRECT_URI}\"],
-                \"defaultRoles\": []
+                \"defaultRoles\": [],
+                \"publicClient\": true
             }" $KEYCLOAK_URL/admin/realms/master/clients/${client_id}
 
     printf "%s\n" "${client_id}" "${client_secret}"

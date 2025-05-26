@@ -1,8 +1,6 @@
 #!/bin/bash
 export KEYCLOAK_URL=http://localhost:8080/auth
 export REDIRECT_URI=http://localhost:8080/
-export ADMIN_USER="admin"
-export ADMIN_PASSWORD="admin"
 export CLIENT_NAME="Media-Player-Omega"
 
 log() {

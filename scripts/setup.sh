@@ -3,7 +3,7 @@
 kind create cluster --name=my-cluster --config=k8s/local/cluster.yaml
 
 # Use minimal Istio profile
-istioctl install --set profile=minimal -y
+istioctl install --set profile=default -y
 
 # Enable automatic side car injection
 kubectl label namespace default istio-injection=enabled
@@ -16,7 +16,9 @@ kubectl label node my-cluster-control-plane node.kubernetes.io/exclude-from-exte
 
 # Deploy apps
 kubectl apply -f k8s/apps
-kubectl apply -f k8s/idp/keycloak.yaml
+
+# Install keycloak
+helm upgrade --install keycloak bitnami/keycloak --set auth.adminUser=$KEYCLOAK_ADMIN_USER --set auth.adminPassword=$KEYCLOAK_ADMIN_PASSWORD -f k8s/helm/keycloak.yaml 
 
 # Setup gateway
 kubectl apply -f k8s/gateway

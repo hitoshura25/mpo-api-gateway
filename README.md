@@ -24,17 +24,34 @@ https://www.docker.com/get-started/
 #### kubectl
 `brew install kubectl`
 
+#### helm
+`brew install helm`
+
+#### bitnami charts (for keycloak)
+```
+helm repo add bitnami https://charts.bitnami.com/bitnami  
+helm repo update 
+```
+
 #### Istio
 https://istio.io/latest/docs/setup/getting-started/#install
 
-### Setup the cluster, Istio, Kubernetes Gateway CRDs, and deploy the apps and gateway
-`./scripts/setup.sh`
+#### Run Scripts
 
-### Setup test users for auth via Keycloak
-`./scripts/keycloak/setupKeycloakUsers.sh`
+```
+# Setup Keycloak Admin Password Env variables
+export KEYCLOAK_ADMIN_USER="<user name>"
+export KEYCLOAK=ADMIN_PASSWORD="<password>"
 
-### Access the application
-`curl "http://localhost:8080/search/?term=games"`
+# Setup the cluster, Istio, Kubernetes Gateway CRDs, and deploy the apps and gateway
+./scripts/setup.sh
+
+# Setup test users for auth via Keycloak
+./scripts/keycloak/setupKeycloakUsers.sh
+
+# Access the application
+curl "http://localhost:8080/search/?term=games"
 
 ### To cleanup when done
-`./scripts/cleanup.sh`
+./scripts/cleanup.sh
+```
