@@ -3,14 +3,38 @@ set -e  # Exit on error
 SCRIPT_DIR=$(dirname "$0")
 source "$SCRIPT_DIR/env.sh"
 
+MAX_RETRIES=3
+RETRY_INTERVAL=5
+
+retry_get_admin_token() {
+    local attempt=1
+    local token=""
+    
+    while [ $attempt -le $MAX_RETRIES ]; do
+        log "Attempting to get admin token (attempt $attempt of $MAX_RETRIES)..."
+        token=$(curl -s -d "client_id=admin-cli" \
+             -d "username=$KEYCLOAK_ADMIN_USER" \
+             -d "password=$KEYCLOAK_ADMIN_PASSWORD" \
+             -d "grant_type=password" \
+             "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" | jq -r .access_token)
+        
+        if [ "$token" != "null" ] && [ ! -z "$token" ]; then
+            echo "$token"
+            return 0
+        fi
+        
+        log "Failed to get admin token, retrying in $RETRY_INTERVAL seconds..."
+        sleep $((RETRY_INTERVAL * attempt))
+        attempt=$((attempt + 1))
+    done
+    
+    log "Failed to get admin token after $MAX_RETRIES attempts"
+    return 1
+}
+
 get_admin_token() {
     log "Getting admin token..."
-    local token=$(curl -s -d "client_id=admin-cli" \
-         -d "username=$ADMIN_USER" \
-         -d "password=$ADMIN_PASSWORD" \
-         -d "grant_type=password" \
-         "$KEYCLOAK_URL/realms/master/protocol/openid-connect/token" | jq -r .access_token)
-    echo "$token"
+    retry_get_admin_token || exit 1
 }
 
 create_client() {
@@ -36,7 +60,8 @@ create_client() {
                 \"authorizationServicesEnabled\": true, 
                 \"fullScopeAllowed\": false,
                 \"redirectUris\": [\"${REDIRECT_URI}\"],
-                \"defaultRoles\": []
+                \"defaultRoles\": [],
+                \"publicClient\": true
             }" $KEYCLOAK_URL/admin/realms/master/clients/${client_id}
 
     printf "%s\n" "${client_id}" "${client_secret}"
@@ -146,7 +171,6 @@ setup_token_claims() {
 
 main() {
     log "Starting Keycloak setup..."
-    
     KEYCLOAK_TOKEN=$(get_admin_token)
     local client_info=$(create_client "$KEYCLOAK_TOKEN")
     IFS='|' read -r -a client_info_array <<< "$client_info"

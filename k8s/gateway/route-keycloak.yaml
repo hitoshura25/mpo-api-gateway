@@ -12,4 +12,4 @@ spec:
         value: /auth
     backendRefs:
     - name: keycloak
-      port: 8080
+      port: 80
