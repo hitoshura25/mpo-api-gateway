@@ -2,11 +2,15 @@
 # Create a kind cluster
 kind create cluster --name=my-cluster --config=k8s/local/cluster.yaml
 
-# Use minimal Istio profile
+# Create and set namespace
+kubectl create namespace mpo
+kubectl config set-context --current --namespace=mpo
+
+# Use default Istio profile
 istioctl install --set profile=default -y
 
 # Enable automatic side car injection
-kubectl label namespace default istio-injection=enabled
+kubectl label namespace mpo istio-injection=enabled
 
 # Setup Kubernetes Gateway API Custom Resource Definition (CRD)
 kubectl get crd gateways.gateway.networking.k8s.io &> /dev/null || kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.2.1/standard-install.yaml
@@ -24,10 +28,10 @@ helm upgrade --install keycloak bitnami/keycloak --set auth.adminUser=$KEYCLOAK_
 kubectl apply -f k8s/gateway
 
 # Wait for the deployment to be ready
-kubectl rollout status deployment mpo-api-gateway-istio -n default --timeout=90s
+kubectl rollout status deployment mpo-api-gateway-istio -n mpo --timeout=90s
 
 # Wait for the keycloak to be ready
-kubectl rollout status statefulset keycloak -n default --timeout=120s
+kubectl rollout status statefulset keycloak -n mpo --timeout=120s
 
 # Apply authorization policies
 kubectl apply -f k8s/security
