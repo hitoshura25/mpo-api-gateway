@@ -2,6 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: mpo-frontend
+  namespace: mpo
   labels:
     app: mpo-frontend
     service: mpo-frontend
@@ -16,6 +17,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: mpo-api-gateway-frontend
+  namespace: mpo
   labels:
     account: mpo-frontend
 ---
@@ -23,6 +25,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mpo-frontend-v1
+  namespace: mpo
   labels:
     app: mpo-frontend
     version: v1
@@ -40,8 +43,11 @@ spec:
     spec:
       serviceAccountName: mpo-api-gateway-frontend
       containers:
-      - name: mmpo-frontend
-        image: hitoshura25/mpo-frontend:latest
+      - name: mpo-frontend
+        image: mpo-frontend:latest
+        env:
+        - name: MPO_BASE_PATH
+          value: "frontend"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
