@@ -46,8 +46,14 @@ spec:
       - name: mpo-frontend
         image: mpo-frontend:latest
         env:
-        - name: MPO_BASE_PATH
-          value: "frontend"
+        - name: OAUTH_AUTHORITY
+          value: "http://localhost:8080/auth/realms/master"
+        - name: OAUTH_CLIENT_ID
+          value: "Media-Player-Omega"
+        - name: OAUTH_REDIRECT_URI
+          value: "http://localhost:8080/frontend/login_callback.html"
+        - name: OAUTH_POST_LOGOUT_REDIRECT_URI
+          value: "http://localhost:8080"
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80

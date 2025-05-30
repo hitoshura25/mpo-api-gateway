@@ -11,6 +11,12 @@ spec:
     - path:
         type: PathPrefix
         value: /frontend
+    filters:
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
     backendRefs:
     - name: mpo-frontend
       port: 80
