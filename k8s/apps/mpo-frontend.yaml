@@ -44,7 +44,7 @@ spec:
       serviceAccountName: mpo-api-gateway-frontend
       containers:
       - name: mpo-frontend
-        image: mpo-frontend:latest
+        image: hitoshura25/mpo-frontend:latest
         env:
         - name: OAUTH_AUTHORITY
           value: "http://localhost:8080/auth/realms/master"
