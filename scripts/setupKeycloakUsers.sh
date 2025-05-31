@@ -61,7 +61,10 @@ create_client() {
                 \"fullScopeAllowed\": false,
                 \"redirectUris\": [\"${REDIRECT_URI}\"],
                 \"defaultRoles\": [],
-                \"publicClient\": true
+                \"publicClient\": true,
+                \"attributes\": {
+                    \"access.token.lifespan\": 1800
+                }   
             }" $KEYCLOAK_URL/admin/realms/master/clients/${client_id}
 
     printf "%s\n" "${client_id}" "${client_secret}"

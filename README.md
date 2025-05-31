@@ -47,7 +47,7 @@ export KEYCLOAK=ADMIN_PASSWORD="<password>"
 ./scripts/setup.sh
 
 # Setup test users for auth via Keycloak
-./scripts/keycloak/setupKeycloakUsers.sh
+./scripts/setupKeycloakUsers.sh
 
 # Access the application
 curl "http://localhost:8080/search/?term=games"
