@@ -56,7 +56,7 @@ export OAUTH_POST_LOGOUT_REDIRECT_URI="http://localhost:8080"
 ./scripts/setupKeycloakUsers.sh
 
 # Access the application
-curl "http://localhost:8080/search/?term=games"
+curl "http://localhost:8080/frontend"
 
 ### To cleanup when done
 ./scripts/cleanup.sh

@@ -47,13 +47,25 @@ spec:
         image: hitoshura25/mpo-frontend:latest
         env:
         - name: OAUTH_AUTHORITY
-          value: "http://localhost:8080/auth/realms/master"
+          valueFrom:
+            secretKeyRef:
+              name: mpo-frontend-secret
+              key: OAUTH_AUTHORITY
         - name: OAUTH_CLIENT_ID
-          value: "Media-Player-Omega"
+          valueFrom:
+            secretKeyRef:
+              name: mpo-frontend-secret
+              key: OAUTH_CLIENT_ID
         - name: OAUTH_REDIRECT_URI
-          value: "http://localhost:8080/frontend/login_callback.html"
+          valueFrom:
+            secretKeyRef:
+              name: mpo-frontend-secret
+              key: OAUTH_REDIRECT_URI
         - name: OAUTH_POST_LOGOUT_REDIRECT_URI
-          value: "http://localhost:8080"
+          valueFrom:
+            secretKeyRef:
+              name: mpo-frontend-secret
+              key: OAUTH_POST_LOGOUT_REDIRECT_URI
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
