@@ -1,7 +1,38 @@
 #!/bin/bash
-export KEYCLOAK_URL=http://localhost:8080/auth
-export REDIRECT_URI=http://localhost:8080/
-export CLIENT_NAME="Media-Player-Omega"
+if [ -z "$KEYCLOAK_URL" ]; then
+  echo "Error: KEYCLOAK_URL env variable is not set. Please set it before running this script." >&2
+  exit 1
+fi
+
+if [ -z "$KEYCLOAK_ADMIN_USER" ]; then
+  echo "Error: KEYCLOAK_ADMIN_USER env variable is not set. Please set it before running this script." >&2
+  exit 1
+fi
+
+if [ -z "$KEYCLOAK_ADMIN_PASSWORD" ]; then
+  echo "Error: KEYCLOAK_ADMIN_PASSWORD env variable is not set. Please set it before running this script." >&2
+  exit 1
+fi
+
+if [ -z "$OAUTH_AUTHORITY" ]; then
+  echo "Error: OAUTH_AUTHORITY env variable is not set. Please set it before running this script." >&2
+  exit 1
+fi
+
+if [ -z "$OAUTH_CLIENT_ID" ]; then
+  echo "Error: OAUTH_CLIENT_ID env variable is not set. Please set it before running this script." >&2
+  exit 1
+fi
+
+if [ -z "$OAUTH_REDIRECT_URI" ]; then
+  echo "Error: OAUTH_REDIRECT_URI env variable is not set. Please set it before running this script." >&2
+  exit 1
+fi
+
+if [ -z "$OAUTH_POST_LOGOUT_REDIRECT_URI" ]; then
+  echo "Error: OAUTH_POST_LOGOUT_REDIRECT_URI env variable is not set. Please set it before running this script." >&2
+  exit 1
+fi
 
 log() {
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1" >&2

@@ -1,4 +1,8 @@
 #!/bin/bash
+set -e  # Exit on error
+SCRIPT_DIR=$(dirname "$0")
+source "$SCRIPT_DIR/env.sh"
+
 # Create a kind cluster
 kind create cluster --name=my-cluster --config=k8s/local/cluster.yaml
 
