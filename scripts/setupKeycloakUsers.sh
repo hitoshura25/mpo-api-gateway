@@ -45,9 +45,9 @@ create_client() {
         -d '{"expiration": 0, "count": 1}' \
         "$KEYCLOAK_URL/admin/realms/master/clients-initial-access" | jq -r '[.id, .token] | @tsv')
 
-    log "Registering client ${CLIENT_NAME}..."
+    log "Registering client ${OAUTH_CLIENT_ID}..."
     read -r client_id client_secret <<<$(curl -s -X POST \
-        -d "{ \"clientId\": \"${CLIENT_NAME}\", \"implicitFlowEnabled\": true }" \
+        -d "{ \"clientId\": \"${OAUTH_CLIENT_ID}\", \"implicitFlowEnabled\": true }" \
         -H "Content-Type:application/json" \
         -H "Authorization: bearer ${init_token}" \
         "${KEYCLOAK_URL}/realms/master/clients-registrations/default" | jq -r '[.id, .secret] | @tsv')
@@ -59,9 +59,12 @@ create_client() {
                 \"directAccessGrantsEnabled\": true, 
                 \"authorizationServicesEnabled\": true, 
                 \"fullScopeAllowed\": false,
-                \"redirectUris\": [\"${REDIRECT_URI}\"],
+                \"redirectUris\": [\"${OAUTH_REDIRECT_URI}\"],
                 \"defaultRoles\": [],
-                \"publicClient\": true
+                \"publicClient\": true,
+                \"attributes\": {
+                    \"access.token.lifespan\": 1800
+                }   
             }" $KEYCLOAK_URL/admin/realms/master/clients/${client_id}
 
     printf "%s\n" "${client_id}" "${client_secret}"
@@ -95,7 +98,7 @@ create_role_with_permissions() {
         \"composite\": true,
         \"composites\": {
           \"client\": {
-            \"${CLIENT_NAME}\": [${permissions_string}]
+            \"${OAUTH_CLIENT_ID}\": [${permissions_string}]
           }
         }
     }" $KEYCLOAK_URL/admin/realms/master/clients/${client_id}/roles
@@ -145,7 +148,7 @@ assign_user_role() {
 setup_token_claims() {
     local token=$1
     local client_id=$2
-    
+
     log "Creating client-role-mapper"
     curl -H "Authorization: Bearer ${token}" \
         -X POST \
@@ -157,8 +160,8 @@ setup_token_claims() {
             \"config\": {
                 \"claim.name\": \"permissions\",
                 \"jsonType.label\": \"String\",
-                \"client.id\": \"$CLIENT_NAME\",
-                \"usermodel.clientRoleMapping.clientId\": \"$CLIENT_NAME\",
+                \"client.id\": \"$OAUTH_CLIENT_ID\",
+                \"usermodel.clientRoleMapping.clientId\": \"$OAUTH_CLIENT_ID\",
                 \"multivalued\": \"true\",
                 \"id.token.claim\": \"true\",
                 \"access.token.claim\": \"true\",

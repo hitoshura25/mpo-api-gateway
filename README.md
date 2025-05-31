@@ -39,18 +39,24 @@ https://istio.io/latest/docs/setup/getting-started/#install
 #### Run Scripts
 
 ```
-# Setup Keycloak Admin Password Env variables
-export KEYCLOAK_ADMIN_USER="<user name>"
-export KEYCLOAK=ADMIN_PASSWORD="<password>"
+# Setup Keycloak Admin Password Env variables in order things to work (below are examples, i.e. if running locally)
+export KEYCLOAK_ADMIN_USER="admin"
+export KEYCLOAK=ADMIN_PASSWORD="admin"
+export KEYCLOAK_URL=http://localhost:8080/auth
+export OAUTH_CLIENT_NAME="Media-Player-Omega"
+export OAUTH_AUTHORITY="http://localhost:8080/auth/realms/master"
+export OAUTH_CLIENT_ID="Media-Player-Omega"
+export OAUTH_REDIRECT_URI="http://localhost:8080/frontend/login_callback.html"
+export OAUTH_POST_LOGOUT_REDIRECT_URI="http://localhost:8080"
 
 # Setup the cluster, Istio, Kubernetes Gateway CRDs, and deploy the apps and gateway
 ./scripts/setup.sh
 
 # Setup test users for auth via Keycloak
-./scripts/keycloak/setupKeycloakUsers.sh
+./scripts/setupKeycloakUsers.sh
 
 # Access the application
-curl "http://localhost:8080/search/?term=games"
+curl "http://localhost:8080/frontend"
 
 ### To cleanup when done
 ./scripts/cleanup.sh

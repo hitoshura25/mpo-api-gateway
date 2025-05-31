@@ -1,4 +1,8 @@
 #!/bin/bash
+set -e  # Exit on error
+SCRIPT_DIR=$(dirname "$0")
+source "$SCRIPT_DIR/env.sh"
+
 # Create a kind cluster
 kind create cluster --name=my-cluster --config=k8s/local/cluster.yaml
 
@@ -17,6 +21,12 @@ kubectl get crd gateways.gateway.networking.k8s.io &> /dev/null || kubectl apply
 
 # Allow LoadBalancer to run on the kind control plan node
 kubectl label node my-cluster-control-plane node.kubernetes.io/exclude-from-external-load-balancers-
+
+# Generate secrets using env variables
+./scripts/generateSecrets.sh
+
+# Load secrets
+kubectl apply -f k8s/secrets
 
 # Deploy apps
 kubectl apply -f k8s/apps
